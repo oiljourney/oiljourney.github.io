@@ -1,0 +1,5 @@
+# HTTrack Website Copier Cookie File
+# This file format is compatible with Netscape cookies
+mappedinjakarta.com	TRUE	/	FALSE	1999999999	mappedin_user	deleted
+mappedinjakarta.com	TRUE	/	FALSE	1999999999	mappedin_pass	deleted
+

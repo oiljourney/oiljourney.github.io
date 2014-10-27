@@ -1,0 +1,1024 @@
+
+<!DOCTYPE html>
+<html>
+  
+<!-- Mirrored from mappedinjakarta.com/index.php by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 24 Oct 2014 22:07:34 GMT -->
+<head>
+    <title>Mapped in Jakarta - Map of the Jakarta startup community</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8">
+    <link rel="shortcut icon" href="images/favicon.ico" >
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans+Condensed:700|Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link href="bootstrap/css/bootstrap.css" rel="stylesheet" type="text/css" />
+    <link href="bootstrap/css/bootstrap-responsive.css" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="mapf88d.css?nocache=289671982568" type="text/css" />
+    <link rel="stylesheet" href="font-awesomef88d.css?nocache=289671982568" type="text/css" />
+    <link rel="stylesheet" media="only screen and (max-device-width: 480px)" href="mobile.css" type="text/css" />
+    <script type="text/javascript" src="../ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <!-- script src="./scripts/jquery-1.7.1.js" type="text/javascript" charset="utf-8"></script -->
+    <script src="bootstrap/js/bootstrap.js" type="text/javascript" charset="utf-8"></script>
+    <script src="bootstrap/js/bootstrap-typeahead.js" type="text/javascript" charset="utf-8"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?sensor=false"></script>
+    <script type="text/javascript" src="scripts/label.js"></script>
+    <script type="text/javascript" src="../google-maps-utility-library-v3.googlecode.com/svn/trunk/infobubble/src/infobubble.js"></script>
+    <script src="../platform.linkedin.com/in.js" type="text/javascript">
+        api_key: n9ie120w2edu
+                onLoad: onLinkedInLoad
+                authorize: true
+        lang:  en_US
+    </script>
+    
+    <script type="text/javascript">      
+      //linkedin api
+      // Runs when the JavaScript framework is loaded
+      function onLinkedInLoad() {
+        IN.Event.on(IN, "auth", onLinkedInAuth);
+      }
+
+      // Runs when the viewer has authenticated
+      function onLinkedInAuth() {
+        IN.API.Profile("me").fields("id", "first-name", "last-name", "picture-url","email-address").result(auth);
+      }
+      
+      // Runs when the Profile() API call returns successfully 1
+      function displayProfiles(profiles) {
+        member = profiles.values[0];
+        //console.log(member);
+        //document.getElementById("profiles").innerHTML = 
+        //  "<p id=\"" + member.id + "\">Hello " +  member.firstName + " " + member.lastName + " " + member.emailAddress+ "</p>";
+      }
+      
+      // Runs when the Profile() API call returns successfully 2
+      function auth(profiles) {
+        member = profiles.values[0];
+        //console.log(member);
+        // send data and get results
+        $.post( 'linkedinauth.html', { id: member.id, name: member.firstName+" "+member.lastName, email: member.emailAddress},
+          function( data ) {
+            var content = $( data ).find( '#content' );
+            // if submission was successful, show info alert
+            if(data == "success") {
+              window.location = "index-2.html?email="+member.emailAddress+"&password="+member.id;
+            // if submission failed, show error
+            } else {
+                console.log('error!');
+                console.log(data);
+            }
+          }
+        );
+      }
+      
+      IN.Event.on(IN, "logout", function() {onLinkedInLogout();});
+
+      function onLinkedInLogout(){
+        // User is logged out
+        window.location.href='index-2.html'
+      }
+      
+      // Google map API
+      var map;
+      var infowindow = null;
+      var gmarkers = [];
+      var markerTitles =[];
+      var highestZIndex = 0;  
+      var agent = "default";
+      var zoomControl = true;
+
+
+      // detect browser agent
+      $(document).ready(function(){
+        if(navigator.userAgent.toLowerCase().indexOf("iphone") > -1 || navigator.userAgent.toLowerCase().indexOf("ipod") > -1) {
+          agent = "iphone";
+          zoomControl = false;
+        }
+        if(navigator.userAgent.toLowerCase().indexOf("ipad") > -1) {
+          agent = "ipad";
+          zoomControl = false;
+        }
+      }); 
+      
+
+      // resize marker list onload/resize
+      $(document).ready(function(){
+        resizeList() 
+      });
+      $(window).resize(function() {
+        resizeList();
+      });
+      
+      // resize marker list to fit window
+      function resizeList() {
+        newHeight = $('html').height() - $('#topbar').height();
+        $('#list').css('height', newHeight + "px"); 
+        $('#menu').css('margin-top', $('#topbar').height()); 
+      }
+
+
+      // initialize map
+      function initialize() {
+        // set map styles
+        var mapStyles = [
+         {
+            featureType: "road",
+            elementType: "geometry",
+            stylers: [
+              { hue: "#8800ff" },
+              { lightness: 100 }
+            ]
+          },{
+            featureType: "road",
+            stylers: [
+              { visibility: "on" },
+              { hue: "#91ff00" },
+              { saturation: -62 },
+              { gamma: 1.98 },
+              { lightness: 45 }
+            ]
+          },{
+            featureType: "water",
+            stylers: [
+              { hue: "#005eff" },
+              { gamma: 0.72 },
+              { lightness: 42 }
+            ]
+          },{
+            featureType: "transit.line",
+            stylers: [
+              { visibility: "off" }
+            ]
+          },{
+            featureType: "administrative.locality",
+            stylers: [
+              { visibility: "on" }
+            ]
+          },{
+            featureType: "administrative.neighborhood",
+            elementType: "geometry",
+            stylers: [
+              { visibility: "simplified" }
+            ]
+          },{
+            featureType: "landscape",
+            stylers: [
+              { visibility: "on" },
+              { gamma: 0.41 },
+              { lightness: 46 }
+            ]
+          },{
+            featureType: "administrative.neighborhood",
+            elementType: "labels.text",
+            stylers: [
+              { visibility: "on" },
+              { saturation: 33 },
+              { lightness: 20 }
+            ]
+          }
+        ];
+
+        // set map options
+        var myOptions = {
+          zoom: 12,
+          //minZoom: 10,
+          center: new google.maps.LatLng(-6.20336,106.846745),
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          streetViewControl: false,
+          mapTypeControl: false,
+          panControl: false,
+          zoomControl: zoomControl,
+          styles: mapStyles,
+          zoomControlOptions: {
+            style: google.maps.ZoomControlStyle.SMALL,
+            position: google.maps.ControlPosition.LEFT_CENTER
+          }
+        };
+        map = new google.maps.Map(document.getElementById('map_canvas'), myOptions);
+        zoomLevel = map.getZoom();
+
+        // prepare infowindow
+        infowindow = new InfoBubble({
+          content: "holding...",
+        });
+
+        // only show marker labels if zoomed in
+        google.maps.event.addListener(map, 'zoom_changed', function() {
+          zoomLevel = map.getZoom();
+          if(zoomLevel <= 15) {
+            $(".marker_label").css("display", "none");
+          } else {
+            $(".marker_label").css("display", "inline");
+          }
+        });
+        
+        // markers array: name, type (icon), lat, long, description, uri, address
+        markers = new Array();
+        
+                markers.push(['Activorm', 'startup', '-6.18425', '106.829', '', 'www.activorm.com', 'Jalan Senopati nomor 75, Kota Jakarta Pusat, DKI Jakarta 12100, Indonesia', 'Activorm is an online platform to activate merchants&#039; social networks', '', '', 'Activation Platform', 'karenkamal@activorm.com', '21','','Karen Kamal','']); 
+                markerTitles['0'] = 'Activorm';
+              
+                markers.push(['BolaBanget', 'startup', '-6.21155', '106.842', '', 'http://www.bolabanget.com/', 'Jakarta, Indonesia', 'BolaBanget, the leading soccer content aggregator in Indonesia.', 'Needs money lah of course hahaha :)', '', 'Online Media', 'sony@bolabanget.com', '45','','Sony AK','+6281905258602']); 
+                markerTitles['1'] = 'BolaBanget';
+              
+                markers.push(['Codemi', 'startup', '-6.21694', '106.835', '', 'http://www.codemi.co/', 'Jalan HR. Rasuna Said Mall Epicentrum Walk Lantai 5, unit A527-531 Jakarta 12940', 'Codemi is a website where people can learn from indonesia&#039;s top expert that can be accessed anytime anywhere.', '', '', 'Online Education', 'hello@codemi.co', '33','','Zaki Falimbany','+622160604939']); 
+                markerTitles['2'] = 'Codemi';
+              
+                markers.push(['DapurMasak.com', 'startup', '-6.20108', '106.851', '', 'http://dapurmasak.com/', 'SOHO Menteng Square Apt. Tower A, 22th Floor No. 15, East Jakarta', 'DapurMasak is a platform to share recipes & cooking experience. We believe that cooking is fun & can deliver happiness for every family.', '', '', 'Social Network', 'info@dapurmasak.com', '41','','Soegianto','+622129614264']); 
+                markerTitles['3'] = 'DapurMasak.com';
+              
+                markers.push(['HandyMantis', 'startup', '-6.20368', '106.855', '', 'http://handymantis.com/', 'Jalan Matraman Dalam 2 Rt.016 Rw.08 No.4, Menteng, Central Jakarta City, Jakarta 10320, Indonesia', 'On Demand Personal & Delivery Service', '', 'http://handymantis.com/', 'Courier', 'info@handymantis.com', '38','','Ahmad Fathi Hadi','+622167671677']); 
+                markerTitles['4'] = 'HandyMantis';
+              
+                markers.push(['HotelQuickly Ltd.', 'startup', '-6.221', '106.825', '', 'www.hotelquickly.com', 'Jalan Pedurenan Mesjid Raya No.52, Setiabudi, Kota Jakarta Selatan, DKI Jakarta 12940, Indonesia', 'Last minute hotel reservation same day only mobile only in APAC', '', '', 'Travel', 'faustine.tan@hotelquickly.com', '20','','Faustine Tan','']); 
+                markerTitles['5'] = 'HotelQuickly Ltd.';
+              
+                markers.push(['Illuminar', 'startup', '-6.19081', '106.764', '', 'www.illuminar.asia', 'Jalan Perjuangan No.88, Kebonjeruk, Kota Jakarta Barat, DKI Jakarta 11530, Indonesia', 'We offer Augmented Reality applications and games', '', 'www.illuminar.asia', 'Digital Agency', 'info@illuminar.asia', '26','','Victor','']); 
+                markerTitles['6'] = 'Illuminar';
+              
+                markers.push(['JKTGO', 'startup', '-6.15871', '106.807', '', 'www.jktgo.com', 'Jalan Duri Selatan, Tambora, Kota Jakarta Barat, DKI Jakarta 11270, Indonesia', 'We are the online city guide in Jakarta.', '', '', 'City Guide', 'info@jktgo.com', '25','','angel chyntia','']); 
+                markerTitles['7'] = 'JKTGO';
+              
+                markers.push(['Kampus Update', 'startup', '-6.37019', '106.833', '', 'www.kampusupdate.com', 'Jalan Margonda Raya Blok Stasiun No.6, Beji, Depok, Jawa Barat 16424, Indonesia', 'The Best Online Job Portal for Students', '', '', 'Education', 'kampusupdate@yahoo.com', '46','','Aditya Nugroho','+6281212270258']); 
+                markerTitles['8'] = 'Kampus Update';
+              
+                markers.push(['Pistarlabs', 'startup', '-6.17015', '106.8', '', 'http://pistarlabs.com/', 'Jln Tomang Utara 2 no 328. Jakarta', 'Pistarlabs is a development team that specialities in web and mobile application development.', '', '', 'Web and Mobile Development Team', 'info@pistarlabs.com', '43','','Jogi Silalahi','+62215603480']); 
+                markerTitles['9'] = 'Pistarlabs';
+              
+                markers.push(['Qraved', 'startup', '-6.21203', '106.819', '', 'http://www.qraved.com/', 'Jalan Jenderal Sudirman No.Kav.121, Tanah Abang, Kota Jakarta Pusat, DKI Jakarta 10250, Indonesia', 'Online Restaurant Reservation', '', '', 'Food', 'info@qraved.com', '24','','Adrian Li','']); 
+                markerTitles['10'] = 'Qraved';
+              
+                markers.push(['Rekayasa Cipta Computama', 'startup', '-6.17878', '106.674', '', 'http://rosettaengine.com/', 'Poris Plawad, Cipondoh, Tangerang', 'We are focus on accounting and financing application software', '', '', 'IT Software', 'yasseryazid@gmail.com', '34','','Yasser Yazid M','+6285725998828']); 
+                markerTitles['11'] = 'Rekayasa Cipta Computama';
+              
+                markers.push(['Sribu', 'startup', '-6.27162', '106.827', '', 'http://sribu.com/', 'Wisma Gandaria Lt Dasar, Jl Gandaria III no 7-8, Kebayoran Lama 12130', 'Sribu.com is a website that connects between customers who need graphic design and community of designers. Our products are logo, website and more.', 'We have an opening for 1 Digital Marketing position. (2 years experience in SEM)', 'http://www.sribu.com/id/careers', 'Online Graphic Design Service', 'ask@sribu.com', '44','','Ryan Gondokusumo','+6221 7279 8748']); 
+                markerTitles['12'] = 'Sribu';
+              
+                markers.push(['Teltics', 'startup', '-6.19062', '106.765', '', 'http://teltics.com/', 'Jalan Perjuangan No.88, Kebonjeruk, Kota Jakarta Barat, DKI Jakarta 11530, Indonesia', 'Teltics mobile media provides full suite off mobile application services to its customer so that they can focus on their business.', 'We need a big funding from investors to expand our business.', 'http://www.teltics.com/contact_usc', 'IT', 'hahnzz@hotmail.com', '1','1','Hans Yonathan','+622153675422']); 
+                markerTitles['13'] = 'Teltics';
+              
+                markers.push(['warnapink.com', 'startup', '-6.17448', '106.717', '', 'http://warnapink.com/', 'Jalan Haji Selong No.85, Cengkareng, West Jakarta City, Jakarta 11750, Indonesia', 'Warnapink.com is a leading online store specialized in pink color, based in Jakarta - Indonesia. We offer trending and fashion forward fashion items w', 'Looking for angel investors', '', 'ecommerce', 'hello@warnapink.com', '42','','Ardy Satria','+622199889924']); 
+                markerTitles['14'] = 'warnapink.com';
+              
+                markers.push(['Multiprinting', 'entrepreneur', '-6.15101', '106.828', '', 'www.multi-printing.com', 'Jalan Mangga Besar 8 No 37, Sawah Besar, Central Jakarta City, Jakarta 10740, Indonesia', 'Multiprinting supplier display system portable &amp; digital printing.', '', '', 'Printing', 'willy@multi-printing.com', '19','1','Willy','']); 
+                markerTitles['15'] = 'Multiprinting';
+              
+                markers.push(['Pixelindie Digital Printing', 'entrepreneur', '-6.29209', '106.745', '', 'www.pixelindie.com', 'Ruko Tematik Pasar Modern Paramount Serpong Blok P No. 25', 'Pixel Indie is a one-stop solution store for camera, digital printing, cinematography, and post-production house.', '', '', 'Digital Printing', 'info@pixelindie.com', '28','','Bram Kristofer','']); 
+                markerTitles['16'] = 'Pixelindie Digital Printing';
+              
+                markers.push(['PT Enervolution', 'entrepreneur', '-6.19116', '106.837', '', 'www.enervolution.com', 'Gedung Gondangdia 3rd Floor', 'Envo (PT Enervolution) is a mobile apps developer producing finance apps, corporate apps, and persona apps. We also do tailor-made apps for clients', '- Clients- Partnerships', '', 'Mobile Apps', 'info@enervolution.com', '37','','Eduardus Christmas','+62213918835']); 
+                markerTitles['17'] = 'PT Enervolution';
+              
+                markers.push(['PT Sinar Rezeki Handal', 'entrepreneur', '-6.16246', '106.667', '', 'http://www.antamgold.com/', 'Jalan Kesehatan Blok U No.7, Batuceper, Kota Tangerang, Banten 15122, Indonesia', 'Buy and Sell Gold online start with 0.001 gram.', '', '', 'Finance', 'support@antamgold.com', '23','','Noni','']); 
+                markerTitles['18'] = 'PT Sinar Rezeki Handal';
+              
+                markers.push(['Sandal Lucu (Sancu)', 'entrepreneur', '-6.19692', '106.905', '', 'http://sandalsancu.com/', 'Jl. Raya Bekasi KM 18, gang Remaja 3 (Seberang RS Harapan Jayakarta) RT 07 RW 07 No 20-B Jatinegara Kaum, Pulogadung, Jakarta Timur 13250 ', 'Kami melayani jual beli Sandal Lucu (grosir/eceran) dengan harga murah! Jadi Reseller / Distributor Sancu SMS 0838 0660 0626 / 0896 3286 0440.', '', 'http://sandalsancu.com/2013/03/25/lowongan-kerja-sandal-lucu-sancu/', 'retail', 'tanya@sandalsancu.com', '31','','Elang Yudantoro','021 6071 8753 / 0812 9499 1685 ']); 
+                markerTitles['19'] = 'Sandal Lucu (Sancu)';
+              
+                markers.push(['Ciputra GEPI Incubator', 'accelerator', '-6.22486', '106.825', '', 'www.cgijakarta.com', 'Ciputra World 1, DBS Tower 9th Floor, Jl. Prof. Dr. Satrio Kav. 3-5 Jakarta 12940 - Indonesia', 'We provide space, mentorship, and access to funding to entrepreneurs and the startup community in Jakarta', 'We are always looking for talented entrepreneurs, developers, and entrepreneurial individuals', 'www.gepindonesia.org', 'Entrepreneurship', 'cgi@gepindonesia.org', '47','','Angelyn Liem','']); 
+                markerTitles['20'] = 'Ciputra GEPI Incubator';
+              
+                markers.push(['The Executive Centre', 'coworking', '-6.22469', '106.81', '', 'www.executivecentre.com', 'One Pacific Place, level 11, Kota Jakarta Selatan, DKI Jakarta 12190, Indonesia', 'Premium Virtual office / Serviced Office provider', '', '', 'Serviced Office ', 'ferrianto_pranata@executivecentre.com', '27','','Ferry Pranata','']); 
+                markerTitles['21'] = 'The Executive Centre';
+              
+                markers.push(['Clientisde', 'service', '-6.23544', '106.81', '', 'www.clientside.co.id', 'Laksana 2, Kebayoran baru', 'integrated marketing communication services dan information technology', '', '', 'Marketing Communication', 'marketing@clientside.co.id', '35','1','Onov Siahaan','+62217221508']); 
+                markerTitles['22'] = 'Clientisde';
+              
+                markers.push(['Mamideal', 'service', '-6.24869', '106.533', '', 'http://mamideal.com/', 'Jalan Citra Raya Utama Timur, Panongan, Tangerang, Banten 15710, Indonesia', 'MamiDeal mempertemukan penjual dan pembeli barang atau perlengkapan khusus bayi &amp; balita bekas yang masih layak pakai seperti misalnya car seats, ', '', '', 'Advertising - Directory', 'hello@mamideal.com', '32','','Desi','']); 
+                markerTitles['23'] = 'Mamideal';
+              
+                markers.push(['PT. Percolate Galactic', 'service', '-6.11179', '106.753', '', 'http://wearepercolate.com/', 'Pantai Indah Kapuk, Jakarta Utara, DKI Jakarta, Indonesia', 'Copywriting, Brand Activation, PR & Corporate Communications, Event Organization, Social Media Management, Influencer Outreach, Overall Awesomenes', '', '', 'Copywriters - Creative Consultancy - Tukang Bakso', 'info@wearepercolate.com', '30','','Samantha K. Jackson','']); 
+                markerTitles['24'] = 'PT. Percolate Galactic';
+              
+                markers.push(['Veritrans', 'service', '-6.21019', '106.821', '', 'www.veritrans.co.id', 'Jalan Jenderal Sudirman No.Kav 10-11, Tanah Abang, Kota Jakarta Pusat, DKI Jakarta 10250, Indonesia', 'Online payment gateway for eCommerce sites', '', '', 'Financial Service', 'diera.hartono@veritrans.co.id', '29','','Diera Yosefina Hartono','']); 
+                markerTitles['25'] = 'Veritrans';
+              
+                markers.push(['Prestise Research Consulting', 'rdcenter', '-6.17162', '106.829', '', 'www.prestise.com', 'Tanah Abang 1', 'PRESTISE Research Consulting is a marketing research consultancy based in Indonesia. We aim to help your business grow with information support.', 'We would love to help you if you need any consultation on the research needs, or related research support.', '', 'Marketing Research', 'contact@prestise.com', '22','','Nindita','']); 
+                markerTitles['26'] = 'Prestise Research Consulting';
+              
+                markers.push(['Bina Nusantara Computer Club', 'community', '-6.20208', '106.782', '', 'www.bncc.net', 'Jl.Kebon Jeruk Raya No.50A', 'IT Events, Project House, Online Magazine, Internship for computer programming. We have training course for computer topic such as web and mobile', '', '', 'Technology', 'pr@bncc.net', '40','1','Jeril Mondoringin','085256957145']); 
+                markerTitles['27'] = 'Bina Nusantara Computer Club';
+              
+                markers.push(['Honda City Club Indonesia', 'community', '-6.23681', '106.815', '', 'www.facebook.com/HondaCityClubIndonesia', 'Jl. Laksana 1, No. 26, Blok S, Kebayoran Baru', 'Honda City owners or users, join us to have more information about your car and friends', 'new and active members', '', 'Automotive', 'cityzenid@gmail.com', '36','1','Onov Siahaan','+62217221508']); 
+                markerTitles['28'] = 'Honda City Club Indonesia';
+              
+        // add markers
+        jQuery.each(markers, function(i, val) {
+          infowindow = new InfoBubble({
+            content: "holding...",
+            borderWidth: 2,
+            borderColor: "#000000",
+            backgroundColor: "rgb(46, 44, 44)",
+            shadowStyle: 1,
+            padding: 10,
+            minWidth: 350,
+          });
+
+          // offset latlong ever so slightly to prevent marker overlap
+          rand_x = Math.random();
+          rand_y = Math.random();
+          val[2] = parseFloat(val[2]) + parseFloat(parseFloat(rand_x) / 6000);
+          val[3] = parseFloat(val[3]) + parseFloat(parseFloat(rand_y) / 6000);
+
+          // show smaller marker icons on mobile
+          if(agent == "iphone") {
+            var iconSize = new google.maps.Size(16,19);
+          } else {
+            iconSize = null;
+          }
+
+          // build this marker
+          var markerImage = new google.maps.MarkerImage("./images/icons/"+val[1]+".png", null, null, null, iconSize);
+          var marker = new google.maps.Marker({
+            position: new google.maps.LatLng(val[2],val[3]),
+            map: map,
+            title: '',
+            clickable: true,
+            infoWindowHtml: '',
+            zIndex: 10 + i,
+            icon: markerImage
+          });
+          marker.type = val[1];
+          gmarkers.push(marker);
+
+          // add marker hover events (if not viewing on mobile)
+          if(agent == "default") {
+            google.maps.event.addListener(marker, "mouseover", function() {
+              this.old_ZIndex = this.getZIndex(); 
+              this.setZIndex(9999); 
+              $("#marker"+i).css("display", "inline");
+              $("#marker"+i).css("z-index", "99999");
+            });
+            google.maps.event.addListener(marker, "mouseout", function() { 
+              if (this.old_ZIndex && zoomLevel <= 15) {
+                this.setZIndex(this.old_ZIndex); 
+                $("#marker"+i).css("display", "none");
+              }
+            }); 
+          }
+
+          // format marker URI for display and linking
+          var markerURI = val[5];
+          var markerHireURI = val[9];
+          var divMarkerHireUrl = '';
+          if(markerURI.substr(0,7) != "http://") {
+            markerURI = "http://" + markerURI; 
+          }
+          if(markerHireURI){
+              if(markerHireURI.substr(0,7) != "http://") {
+                markerHireURI = "http://" + markerHireURI; 
+              }
+            divMarkerHireUrl = "<a target='_blank' href='"+markerHireURI+"' class='btn btn-small btn-info' style='float:right;margin-right:10px;'><i class='icon-external-link'></i>  Hiring!!</a>";
+          }
+          var markerURI_short = markerURI.replace("http://", "");
+          var markerURI_short = markerURI_short.replace("www.", "");
+          var need = ""; 
+          if(val[8]){
+            need = "<div class='marker_need'>Need: <br/><textarea rows='3' style='width: 350px;resize: none;' readonly>"+val[8]+"</textarea>";  
+          }
+          var logo = "<div style='float:left;margin-right:10px;'><img src='images\\icon-company-default.png' alt='' style='width:90px;height:75px;'></div>";
+          if(val[13]){
+            logo = "<div style='float:left;margin-right:10px;'><img src='menu\\select_logo_company.php?id="+val[12]+"' alt='' style='width:90px;height:75px;'></div>";
+          }
+          var phone = "";
+          if(val[15]){
+            phone = "<div class='marker_owner_name'><i class='icon-phone icon-small'></i> "+val[15]+"</div>";
+          }
+          var title = "<a class='hoveractive' target='_blank' href='place.php?id="+val[12]+"'>"+val[0]+"</a>";
+          if(val[10] == 'Events'){
+            title = "<a class='hoveractive' target='_blank' href='"+markerURI+"'>"+val[0]+"</a>";
+          }
+          // add marker click effects (open infowindow)
+          google.maps.event.addListener(marker, 'click', function () {
+            infowindow.setContent(
+              logo
+              +"<div class='marker_title' style='font-weight: bold;'>"+title+"<a class='hoveractive' target='_blank' href='"+markerURI+"'><i class='icon-external-link' style='font-size: 13px;padding-left: 5px;'></i></a>"+ divMarkerHireUrl+"</div>"
+              + "<div class='marker_sector'>Sector : "+val[10]+"</div>"
+              + "<div class='marker_owner_name'><i class='icon-user icon-small'></i> "+val[14]+"</div>"
+              + phone
+              + "<div class='marker_email'><i class='icon-envelope-alt icon-small'></i> "+val[11]+"</div>"
+              + "<div class='marker_address'><i class='icon-home icon-small'></i> "+val[6]+"</div>"
+              + "<div class='marker_offer'>Offer: <br/><textarea rows='3' style='width: 350px;resize: none;' readonly>"+val[7]+"</textarea>"
+              + need
+            );
+            infowindow.open(map, this);
+          });
+
+          // add marker label
+          var latLng = new google.maps.LatLng(val[2], val[3]);
+          var label = new Label({
+            map: map,
+            id: i
+          });
+          label.bindTo('position', marker);
+          label.set("text", val[0]);
+          label.bindTo('visible', marker);
+          label.bindTo('clickable', marker);
+          label.bindTo('zIndex', marker);
+        });
+
+
+        // zoom to marker if selected in search typeahead list
+        $('#search').typeahead({
+          source: markerTitles, 
+          onselect: function(obj) {
+            marker_id = jQuery.inArray(obj, markerTitles);
+            if(marker_id > -1) {
+              map.panTo(gmarkers[marker_id].getPosition());
+              map.setZoom(15);
+              google.maps.event.trigger(gmarkers[marker_id], 'click');
+            }
+            $("#search").val("");
+          }
+        });
+      } 
+
+
+      // zoom to specific marker
+      function goToMarker(marker_id) {
+        if(marker_id) {
+          map.panTo(gmarkers[marker_id].getPosition());
+          map.setZoom(15);
+          google.maps.event.trigger(gmarkers[marker_id], 'click');
+        }
+      }
+
+      // toggle (hide/show) markers of a given type (on the map)
+      function toggle(type) {
+        if($('#filter_'+type).is('.inactive')) {
+          show(type); 
+        } else {
+          hide(type); 
+        }
+      }
+
+      // hide all markers of a given type
+      function hide(type) {
+        for (var i=0; i<gmarkers.length; i++) {
+          if (gmarkers[i].type == type) {
+            gmarkers[i].setVisible(false);
+          }
+        }
+        $("#filter_"+type).addClass("inactive");
+      }
+
+      // show all markers of a given type
+      function show(type) {
+        for (var i=0; i<gmarkers.length; i++) {
+          if (gmarkers[i].type == type) {
+            gmarkers[i].setVisible(true);
+          }
+        }
+        $("#filter_"+type).removeClass("inactive");
+      }
+      
+      // toggle (hide/show) marker list of a given type
+      function toggleList(type) {
+        $("#list .list-"+type).toggle();
+      }
+
+
+      // hover on list item
+      function markerListMouseOver(marker_id) {
+        $("#marker"+marker_id).css("display", "inline");
+      }
+      function markerListMouseOut(marker_id) {
+        $("#marker"+marker_id).css("display", "none");
+      }
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+      
+    </script>  
+      </head>
+  <body>
+    
+    <!-- display error overlay if something went wrong -->
+    <!-- ?php echo $error; ?-->
+    <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','../www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-45805363-1', 'mappedinjakarta.com');
+  ga('send', 'pageview');
+
+</script>    <!-- facebook like button code -->
+    <div id="fb-root"></div>
+    <script>(function(d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s); js.id = id;
+      js.src = "../connect.facebook.net/en_US/all.js#xfbml=1";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));</script>
+    
+    <!-- topbar -->
+    <div class="topbar" id="topbar">
+      <div class="wrapper">
+        <div class="right">
+          <div class="share">
+          <a href="https://twitter.com/share" class="twitter-share-button" data-url="http://www.mappedinjakarta.com" data-text="Let's put Jakarta startups on the map:" data-via="mappedinjakarta" data-count="none">Tweet</a>
+            <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="../platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+            <div class="fb-like" data-href="http://www.mappedinjakarta.com" data-share="false" data-layout="button_count" data-width="100" data-show-faces="false" data-font="arial"></div>
+          </div>
+        </div>
+        <div class="left">
+          <div class="logo">
+            <a href="index.html">
+              <img src="images/logo.png" alt="" />
+            </a>
+          </div>
+          <div class="search">
+            <input type="text" name="search" id="search" placeholder="Search for companies..." data-provide="typeahead" autocomplete="off" />
+          </div>
+          <div class="buttons">
+            <a href="#modal_info" class="menuitem" data-toggle="modal"><i class="icon-info-sign icon-white"></i> About this Map</a>
+            <a href="#modal_info_jakarta" class="menuitem" data-toggle="modal"><i class="icon-info-sign icon-white"></i> About Jakarta</a>
+                        <a href="#modal_login" class="menuitem" data-toggle="modal"><i class="icon-signin icon-white"></i> Login/Register</a>
+            <a href="#modal_login" class="menuitem" data-toggle="modal"><i class="icon-plus-sign icon-white"></i> Promote Something</a>
+                         
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- right-side gutter -->
+    <div class="menu" id="menu">
+      <ul class="list" id="list">
+        
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('startup')" id='filter_startup'></div>
+                  <a href='#' onClick="toggleList('startup');" class='category_info'><img src='images/icons/startup.png' alt='' />Startups<span class='total'> (15)</span></a>
+                </div>
+                <ul class='list-items list-startup'>
+            
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('0')" onMouseOut="markerListMouseOut('0')" onClick="goToMarker('0');">Activorm</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('1')" onMouseOut="markerListMouseOut('1')" onClick="goToMarker('1');">BolaBanget</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('2')" onMouseOut="markerListMouseOut('2')" onClick="goToMarker('2');">Codemi</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('3')" onMouseOut="markerListMouseOut('3')" onClick="goToMarker('3');">DapurMasak.com</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('4')" onMouseOut="markerListMouseOut('4')" onClick="goToMarker('4');">HandyMantis<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('5')" onMouseOut="markerListMouseOut('5')" onClick="goToMarker('5');">HotelQuickly Ltd.</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('6')" onMouseOut="markerListMouseOut('6')" onClick="goToMarker('6');">Illuminar<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('7')" onMouseOut="markerListMouseOut('7')" onClick="goToMarker('7');">JKTGO</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('8')" onMouseOut="markerListMouseOut('8')" onClick="goToMarker('8');">Kampus Update</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('9')" onMouseOut="markerListMouseOut('9')" onClick="goToMarker('9');">Pistarlabs</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('10')" onMouseOut="markerListMouseOut('10')" onClick="goToMarker('10');">Qraved</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('11')" onMouseOut="markerListMouseOut('11')" onClick="goToMarker('11');">Rekayasa Cipta Computama</a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('12')" onMouseOut="markerListMouseOut('12')" onClick="goToMarker('12');">Sribu<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('13')" onMouseOut="markerListMouseOut('13')" onClick="goToMarker('13');">Teltics<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                  <li class='startup'>
+                    <a href='#' onMouseOver="markerListMouseOver('14')" onMouseOut="markerListMouseOut('14')" onClick="goToMarker('14');">warnapink.com</a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('entrepreneur')" id='filter_entrepreneur'></div>
+                  <a href='#' onClick="toggleList('entrepreneur');" class='category_info'><img src='images/icons/entrepreneur.png' alt='' />Entrepreneurs<span class='total'> (5)</span></a>
+                </div>
+                <ul class='list-items list-entrepreneur'>
+            
+                  <li class='entrepreneur'>
+                    <a href='#' onMouseOver="markerListMouseOver('15')" onMouseOut="markerListMouseOut('15')" onClick="goToMarker('15');">Multiprinting</a>
+                  </li>
+              
+                  <li class='entrepreneur'>
+                    <a href='#' onMouseOver="markerListMouseOver('16')" onMouseOut="markerListMouseOut('16')" onClick="goToMarker('16');">Pixelindie Digital Printing</a>
+                  </li>
+              
+                  <li class='entrepreneur'>
+                    <a href='#' onMouseOver="markerListMouseOver('17')" onMouseOut="markerListMouseOut('17')" onClick="goToMarker('17');">PT Enervolution</a>
+                  </li>
+              
+                  <li class='entrepreneur'>
+                    <a href='#' onMouseOver="markerListMouseOver('18')" onMouseOut="markerListMouseOut('18')" onClick="goToMarker('18');">PT Sinar Rezeki Handal</a>
+                  </li>
+              
+                  <li class='entrepreneur'>
+                    <a href='#' onMouseOver="markerListMouseOver('19')" onMouseOut="markerListMouseOut('19')" onClick="goToMarker('19');">Sandal Lucu (Sancu)<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('accelerator')" id='filter_accelerator'></div>
+                  <a href='#' onClick="toggleList('accelerator');" class='category_info'><img src='images/icons/accelerator.png' alt='' />Accelerators<span class='total'> (1)</span></a>
+                </div>
+                <ul class='list-items list-accelerator'>
+            
+                  <li class='accelerator'>
+                    <a href='#' onMouseOver="markerListMouseOver('20')" onMouseOut="markerListMouseOut('20')" onClick="goToMarker('20');">Ciputra GEPI Incubator<span class='btn btn-mini btn-info' style='float:right;margin-top: -3px;opacity: 1;'><i class='icon-external-link'></i>  Hiring!!</span></a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('coworking')" id='filter_coworking'></div>
+                  <a href='#' onClick="toggleList('coworking');" class='category_info'><img src='images/icons/coworking.png' alt='' />Coworking<span class='total'> (1)</span></a>
+                </div>
+                <ul class='list-items list-coworking'>
+            
+                  <li class='coworking'>
+                    <a href='#' onMouseOver="markerListMouseOver('21')" onMouseOut="markerListMouseOut('21')" onClick="goToMarker('21');">The Executive Centre</a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('investor')" id='filter_investor'></div>
+                  <a href='#' onClick="toggleList('investor');" class='category_info'><img src='images/icons/investor.png' alt='' />Investors<span class='total'> (0)</span></a>
+                </div>
+                <ul class='list-items list-investor'>
+            
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('service')" id='filter_service'></div>
+                  <a href='#' onClick="toggleList('service');" class='category_info'><img src='images/icons/service.png' alt='' />Services<span class='total'> (4)</span></a>
+                </div>
+                <ul class='list-items list-service'>
+            
+                  <li class='service'>
+                    <a href='#' onMouseOver="markerListMouseOver('22')" onMouseOut="markerListMouseOut('22')" onClick="goToMarker('22');">Clientisde</a>
+                  </li>
+              
+                  <li class='service'>
+                    <a href='#' onMouseOver="markerListMouseOver('23')" onMouseOut="markerListMouseOut('23')" onClick="goToMarker('23');">Mamideal</a>
+                  </li>
+              
+                  <li class='service'>
+                    <a href='#' onMouseOver="markerListMouseOver('24')" onMouseOut="markerListMouseOut('24')" onClick="goToMarker('24');">PT. Percolate Galactic</a>
+                  </li>
+              
+                  <li class='service'>
+                    <a href='#' onMouseOver="markerListMouseOver('25')" onMouseOut="markerListMouseOut('25')" onClick="goToMarker('25');">Veritrans</a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('rdcenter')" id='filter_rdcenter'></div>
+                  <a href='#' onClick="toggleList('rdcenter');" class='category_info'><img src='images/icons/rdcenter.png' alt='' />R&amp;D Centers<span class='total'> (1)</span></a>
+                </div>
+                <ul class='list-items list-rdcenter'>
+            
+                  <li class='rdcenter'>
+                    <a href='#' onMouseOver="markerListMouseOver('26')" onMouseOut="markerListMouseOut('26')" onClick="goToMarker('26');">Prestise Research Consulting</a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('community')" id='filter_community'></div>
+                  <a href='#' onClick="toggleList('community');" class='category_info'><img src='images/icons/community.png' alt='' />Community<span class='total'> (2)</span></a>
+                </div>
+                <ul class='list-items list-community'>
+            
+                  <li class='community'>
+                    <a href='#' onMouseOver="markerListMouseOver('27')" onMouseOut="markerListMouseOut('27')" onClick="goToMarker('27');">Bina Nusantara Computer Club</a>
+                  </li>
+              
+                  <li class='community'>
+                    <a href='#' onMouseOver="markerListMouseOver('28')" onMouseOut="markerListMouseOut('28')" onClick="goToMarker('28');">Honda City Club Indonesia</a>
+                  </li>
+              
+                </ul>
+              </li>
+            
+              <li class='category'>
+                <div class='category_item'>
+                  <div class='category_toggle' onClick="toggle('event')" id='filter_event'></div>
+                  <a href='#' onClick="toggleList('event');" class='category_info'><img src='images/icons/event.png' alt='' />Events<span class='total'> (0)</span></a>
+                </div>
+                <ul class='list-items list-event'>
+            
+                </ul>
+              </li>
+                    <li class="blurb">This map was made to connect and promote the Jakarta tech startup community.  Let's put Jakarta on the map!</li>
+        <li class="attribution">
+          <!-- per our license, you may not remove this line -->
+          
+  <span>
+    Based on <a href='http://www.represent.la/' target='_blank'>RepresentLA</a>
+  </span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- google map -->
+    <div id="map_canvas"></div>
+    
+    <!-- more info modal -->
+    <div class="modal hide fade" id="modal_info" style="width: 640px;">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">×</button>
+        <h3>About Mapped In Jakarta</h3>
+      </div>
+      <div class="modal-body" style="max-height: 500px;">
+      <h3><b>Why Mapped In Jakarta</b></h3>
+        <p>
+ Mapped in Jakarta is your definitive location-based guide for technology startups, entrepreneurs, incubators and investors in Jakarta and other emerging Indonesian hubs. 
+ </p>
+ <p>
+ Our aims :<br/>
+ 1. To connect and promote Jakarta's leading technological and entrepreneurial community  <br/>
+ 2. To provide easy access to data about Indonesia's high-tech ecosystem<br/>
+ 3. To become a tool for jobs search, industry research and funding <br/>
+ 4. To provide a social and mobile platform to startup events and conferences 
+ </p>
+ <p>Join us and be mapped in!</p>
+ <h3><b>Definition</b></h3>
+ <p><b>Startup:</b> A startup company or startup is a company, a partnership or temporary organization designed to search for a repeatable and scalable business model. These companies, generally newly created, are in a phase of development and research for markets.</p>
+ <p><b>Entrepreneur:</b> An individual or organization who organizes a business. We are targeting this category to be a listing of Small and Medium Enterprises (SMEs).</p>
+ <p><b>Accelerator:</b> A modern, for-profit type of startup incubator. Through an open application process, accelerators take classes of startups consisting of small teams. They support the startups with funding, mentoring, training and events for a definite period (usually three months) in exchange for equity.</p>
+ <p><b>Coworking:</b> A style of work that involves a shared working environment, often an office and independent activity. Unlike in a typical office environment, those coworkings are usually not employed by the same organization.</p>
+ <p><b>Investor:</b> A person or organization who allocates capital with the expectation of a financial return.</p>
+ <p><b>R&D Center:</b> An organization that works to discover and create new knowledge about scientific and technological topics for the purpose of uncovering and enabling development of valuable new products, processes and services.</p>
+ <p><b>Community:</b> A social unit of any size that shares common values. </p>
+ <p><b>Service:</b> An organization which delivers and provides services as their business.</p>
+        <p>
+        Questions? Feedback? Connect with us: <a href="http://www.twitter.com/mappedinjakarta" target="_blank">@mappedinjakarta</a> or <a href="https://www.facebook.com/pages/Mapped-in-Jakarta/497482660358839" target="_blank">MappedinJakarta Fan Page</a>
+        </p>
+        <p>
+        Or use our <a href="#modal_contactus" data-toggle="modal">Contact</a> form. We try to respond within 48 hours.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <a href="#" class="btn" data-dismiss="modal" style="float: right;">Close</a>
+      </div>
+    </div>
+    
+    <!-- more info jakarta modal -->
+    <div class="modal hide fade" id="modal_info_jakarta" style="width: 640px;">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">×</button>
+        <h3>About Jakarta</h3>
+      </div>
+      <div class="modal-body" style="max-height: 500px;">
+      <h3><b>Jakarta</b></h3> 
+      <p>Officially known as the Special Capital Region of Jakarta, is the capital and largest city of Indonesia. Located on the northwest coast of Java, Jakarta is the country's economic, cultural and political centre, and with a population of 10,187,595 - as of November 2011. It is the most populous city in Indonesia and in Southeast Asia, and is the thirteenth most populated city in the world.</p>
+      <p>Jakarta is listed as a global city in the 2008 Globalization and World Cities Study Group and Network (GaWC) research. It has an area of 661 square kilometres (255 sq mi) and a population of over 28 million, making it one of the world's largest conurbations in terms of number of inhabitants.</p>
+      <h3><b>Economy</b></h3>
+      <p>Jakarta's economy depends heavily on financial service, trade, and manufacturing. Industries in Jakarta include electronics, automotive, chemicals, mechanical engineering and biomedical sciences manufacturing.</p>
+      <p>The economic growth of Jakarta in 2007 was 6.44% up from 5.95% the previous year, with the growth in the transportation and communication (15.25%), construction (7.81%) and trade, hotel and restaurant sectors (6.88%). In 2007, GRP (Gross Regional Domestic Product) was Rp. 566 trillion (around US$ 56 billion). The largest contributions to GDRP were by finance, ownership and business services (29%); trade, hotel and restaurant sectors (20%); and manufacturing industry sector (16%). In 2007, the increase in per capita GRDP of DKI Jakarta inhabitants was 11.6% compared to the previous year.</p>
+      <p>Both GRDP by at current market price and GRDP by at 2000 constant price in 2007 for the Municipality of Central Jakarta (Jakarta Pusat), which was Rp 146 million and Rp 81 million, was higher than other municipalities in DKI Jakarta.</p>
+      <h3><b>Startup in Jakarta</b></h3>
+      <p>Jakarta as the capital city of Indonesia holds an important key in Indonesia. Generally, the most app users in Indonesia are located in Jakarta. It shows that Jakarta is an important emerging market.</p>
+      <p>The spirit of building a startup begins to develop in Jakarta. In 2012, the number of startups in Indonesia reached about 300 startups and hopes to increase.</p>
+      <p>Jakarta's market works and promising for e-commerce, business trips and game apps. It expects that local content will be the star in 2013, with the acquisition or partnership to local startup to reach US$ 15 million to US$ 17 million.</p>
+      </div>
+      <div class="modal-footer">
+        <a href="#" class="btn" data-dismiss="modal" style="float: right;">Close</a>
+      </div>
+    </div>
+
+    <!-- Login modal -->
+    <div class="modal hide fade" id="modal_login">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">×</button>
+        <h3>Login</h3>
+      </div>
+      <div class="modal-body">
+        <p>
+          To post and update company list, please sign in with LinkedIn (recommended) or register with your email address.
+        </p>
+        <script type="IN/Login">
+        </script>
+        <p>
+          or
+        </p>
+        <div id="result"></div>
+        <form class="login" id="login" action="http://mappedinjakarta.com/login.php">
+            <p class="field">
+                <input type="email" id="email" name="email" placeholder="Email" pattern="[^ @]*@[^ @]*" maxlength="50" required autofocus>
+                <i class="icon-envelope-alt icon-large"></i>
+            </p>
+            <p class="field">
+                <input type="password" id="password" name="password" placeholder="Password" maxlength="25" required>
+                <i class="icon-lock icon-large"></i>
+            </p>        
+            <p class="submit">
+                <button type="submit"><i class="icon-arrow-right icon-large"></i></button>
+            </p>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <a href="#modal_register" class="btn" data-toggle="modal" style="float:left;">Register</a>
+      </div>
+    </div>
+    <script>
+      // add modal form submit
+      $("#login").submit(function(event) {
+        event.preventDefault(); 
+        // get values
+        var $form = $( this ),
+            email = $form.find( ':input#email' ).val(),
+            password = $form.find( ':input#password' ).val(),
+            url = $form.attr( 'action' );
+        // send data and get results
+        $.get( url, { email: email, password: password },
+          function( data ) {
+            // if submission was successful, show info alert
+            if(data == "Wrong Email and Password") {
+              $("#modal_login #result").html(data); 
+              $("#modal_login #result").addClass("alert alert-danger");
+            }else{
+                document.location = "index-2.html";
+            }
+          }
+        );
+      });
+    </script>    
+    <!-- Register modal -->
+    <div class="modal hide fade" id="modal_register">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">×</button>
+        <h3>Register</h3>
+      </div>
+      <div class="modal-body">
+        <form class="register" id="register" action="http://mappedinjakarta.com/register.php" autocomplete="on">
+            <div id="result"></div>
+            <p class="field">
+                <input type="text" id="name" name="name" placeholder="Name"  maxlength="100" required autofocus>
+                <i class="icon-user icon-large"></i>
+            </p>
+            <p class="field">
+                <input type="email" id="email" name="email" placeholder="Email" pattern="[^ @]*@[^ @]*" maxlength="50" required>
+                <i class="icon-envelope-alt icon-large"></i>
+            </p>
+            <p class="field">
+                <input type="password" id="password" name="password" placeholder="Password" maxlength="25" required>
+                <i class="icon-lock icon-large"></i>
+            </p>
+            <p class="field">
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm Password" maxlength="25" required>
+                <i class="icon-lock icon-large"></i>
+            </p>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="submit" style="float:left;" form="register" class="btn btn-primary">Register</button>
+      </div>
+    </div>
+    
+    <script>
+      // add modal form submit
+      $("#register").submit(function(event) {
+        event.preventDefault(); 
+        // get values
+        var $form = $( this ),
+            name = $form.find( ':input#name' ).val(),
+            email = $form.find( ':input#email' ).val(),
+            password = $form.find( ':input#password' ).val(),
+            confirm_password = $form.find( ':input#confirm_password' ).val(),
+            url = $form.attr( 'action' );
+
+        // send data and get results
+        $.post( url, { name: name, email: email, password: password, confirm_password: confirm_password },
+          function( data ) {
+
+            // if submission was successful, show info alert
+            if(data == "success") {
+              window.location = "index-2.html?email="+email+"&password="+password;              
+            // if submission failed, show error
+            } else {
+              $("#modal_register #result").html(data); 
+              $("#modal_register #result").addClass("alert alert-danger");
+            }
+          }
+        );
+      });
+    </script>
+    
+    <!-- contact us modal -->
+    <div class="modal hide fade" id="modal_contactus">
+      <form action="http://mappedinjakarta.com/add_contactus.php" id="modal_contactusform" class="form-horizontal">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal">×</button>
+          <h3>Contact Us</h3>
+        </div>
+        <div class="modal-body">
+          <div id="result_contactus"></div>
+          <fieldset>
+            <div class="control-group">
+              <label class="control-label" for="add_email_contactus">Email*</label>
+              <div class="controls">
+                <input type="text" class="input-xlarge" name="email_contactus" id="add_email_contactus" maxlength="150" placeholder="Your Email" pattern="[^ @]*@[^ @]*" required autofocus>
+              </div>
+            </div>
+            <div class="control-group">
+              <label class="control-label" for="add_contactus_message">Message*</label>
+              <div class="controls">
+                <textarea rows='3' style='width: 340px;' class="input-xlarge" name="message_contactus" id="add_contactus_message" maxlength="640" placeholder="Write your message here.." required></textarea>
+              </div>
+            </div>
+          </fieldset>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Send</button>
+          <a href="#" class="btn" data-dismiss="modal" style="float: right;">Close</a>
+        </div>
+      </form>
+    </div>
+    <script>
+      // add modal form submit
+      $("#modal_contactusform").submit(function(event) {
+        event.preventDefault(); 
+        // get values
+        var $form = $( this ),
+            email_contactus = $form.find( '#add_email_contactus' ).val(),
+            message_contactus = $form.find( '#add_contactus_message' ).val(),
+            url = $form.attr( 'action' );
+        $("#modal_contactusform .btn-primary").attr('disabled', 'disabled');
+        // send data and get results
+        $.post( url, { email_contactus : email_contactus, message_contactus: message_contactus },
+          function( data ) {
+            var content = $( data ).find( '#content' );
+            
+            // if submission was successful, show info alert
+            if(data == "success") {
+              $("#modal_contactusform #result_contactus").html("We've received your message and will review it shortly. Thanks!"); 
+              $("#modal_contactusform #result_contactus").addClass("alert alert-info");
+              $("#modal_contactusform p").css("display", "none");
+              $("#modal_contactusform fieldset").css("display", "none");
+              $("#modal_contactusform .btn-primary").css("display", "none");              
+            // if submission failed, show error
+            } else {
+              $("#modal_contactusform #result_contactus").html(data); 
+              $("#modal_contactusform #result_contactus").addClass("alert alert-danger");
+              $("#modal_contactusform .btn-primary").removeAttr('disabled');
+            }
+          }
+        );
+      });
+    $('#modal_contactus').on('hide.bs.modal', function () {
+      $('#modal_contactusform')[0].reset();
+    });
+    $('#modal_contactus').on('show.bs.modal', function () {
+      $("#modal_contactusform #result_contactus").html(""); 
+      $("#modal_contactusform #result_contactus").removeClass();
+      $("#modal_contactusform p").css("display", "");
+      $("#modal_contactusform fieldset").css("display", "");
+      $("#modal_contactusform .btn-primary").css("display", "");
+      $("#modal_contactusform .btn-primary").removeAttr('disabled');
+    });
+    </script>    
+  </body>
+
+<!-- Mirrored from mappedinjakarta.com/index.php by HTTrack Website Copier/3.x [XR&CO'2014], Fri, 24 Oct 2014 22:07:34 GMT -->
+</html>
